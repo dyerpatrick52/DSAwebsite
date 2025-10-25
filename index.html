@@ -7,17 +7,19 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- Chosen Palette: Neutral Study (Tailwind grays/slates with blue accents) -->
-    <!-- Application Structure Plan: Single-page app with a fixed left sidebar for navigation between lecture topics (Sections 1-8). The main content area dynamically displays the selected topic's notes, including definitions, properties, operation tables with runtimes, and a visualization for growth rates. This structure mirrors the lecture flow, providing easy, thematic access for study and review. Key interactions include sidebar navigation and viewing the growth rate chart. Chosen for usability and alignment with typical study habits. -->
+    <!-- Application Structure Plan: Single-page app with a fixed left sidebar for navigation between lecture topics (Sections 1-8). Main content area dynamically displays notes, runtimes, properties, and interactive visualizations (Lists, Heaps, BSTs) for the selected topic. Structure follows lecture flow for easy review. Key interactions: sidebar navigation, growth chart view, visualization controls (add/remove/find). Chosen for usability, study alignment, and enhancing understanding through interaction. -->
     <!-- Visualization & Content Choices:
         - Lecture Notes: Inform -> Structured HTML text -> None -> Standard presentation -> HTML/Tailwind.
-        - ADT Operations/Runtimes: Compare -> HTML Tables -> None -> Clear side-by-side comparison -> HTML/Tailwind.
-        - Growth Rates: Compare/Inform -> Line Chart -> Hover -> Visual comparison of asymptotic behavior -> Chart.js (Canvas).
-        - Stack/Queue Viz: Inform -> Basic HTML Div simulation -> Click buttons -> Concrete example of LIFO/FIFO -> HTML/JS/Tailwind. (Simplified)
-        - Tree Properties: Inform -> Structured HTML lists/text -> None -> Concise summary of relationships -> HTML/Tailwind.
+        - ADT Operations/Runtimes: Compare -> HTML Tables -> None -> Clear comparison -> HTML/Tailwind.
+        - Growth Rates: Compare/Inform -> Line Chart -> Hover -> Visual comparison -> Chart.js (Canvas).
+        - Lists Viz: Inform/Explore -> Linked HTML Divs -> Add/Remove buttons -> Show structure/manipulation -> HTML/JS/Tailwind.
+        - Heap Viz: Inform/Explore -> Canvas Tree + Array Display -> Insert/RemoveMin buttons -> Show heap property/operations -> Canvas API/HTML/JS.
+        - BST Viz: Inform/Explore -> Canvas Tree -> Insert/Remove/Find buttons -> Show search property/operations -> Canvas API/JS.
+        - Tree Properties: Inform -> HTML lists -> None -> Concise summary -> HTML/Tailwind.
         - CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
     <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
     <style>
-        /* Custom styles for scrollbar and active link */
+        /* Custom styles */
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 4px; }
         ::-webkit-scrollbar-thumb { background: #64748b; border-radius: 4px; }
@@ -25,15 +27,22 @@
         .active-link { background-color: #e0f2fe; color: #0c4a6e; font-weight: 600; }
         .chart-container { position: relative; width: 100%; max-width: 600px; margin-left: auto; margin-right: auto; height: 300px; max-height: 400px; }
         @media (min-width: 768px) { .chart-container { height: 350px; } }
-        /* Simple Stack/Queue Visualization Styles */
-        .viz-container { min-height: 200px; border: 1px solid #cbd5e1; padding: 1rem; margin-top: 1rem; border-radius: 0.5rem; background-color: #f8fafc; }
-        .viz-item { background-color: #60a5fa; color: white; padding: 0.5rem 1rem; margin: 0.25rem; border-radius: 0.375rem; text-align: center; }
+        .viz-container { min-height: 150px; border: 1px solid #cbd5e1; padding: 1rem; margin-top: 1rem; border-radius: 0.5rem; background-color: #f8fafc; overflow-x: auto; }
+        .viz-item { background-color: #60a5fa; color: white; padding: 0.5rem 1rem; margin: 0.25rem; border-radius: 0.375rem; text-align: center; display: inline-block; min-width: 40px; }
         .stack-items { display: flex; flex-direction: column-reverse; align-items: center; }
-        .queue-items { display: flex; flex-direction: row; align-items: center; }
-        /* Style for properties list */
+        .queue-items { display: flex; flex-direction: row; align-items: center; flex-wrap: nowrap; }
+        .list-items { display: flex; align-items: center; flex-wrap: nowrap; }
+        .list-node { border: 1px solid #94a3b8; background-color: #e0f2fe; padding: 0.5rem; text-align: center; border-radius: 0.25rem; margin: 0 0.5rem; min-width: 50px; position: relative;}
+        .list-link { color: #64748b; margin: 0 0.2rem; font-size: 1.2em;} /* Simple arrow representation */
         .prop-list li { margin-bottom: 0.5rem; }
         .prop-list code { background-color: #f1f5f9; padding: 0.1rem 0.3rem; border-radius: 0.25rem; font-family: monospace; }
         .prop-list strong { color: #475569; }
+        .professor-note { background-color: #ffedd5; border-left: 4px solid #fb923c; padding: 0.75rem 1rem; margin-top: 1rem; font-size: 0.9em; color: #7c2d12;}
+        canvas.tree-canvas { display: block; width: 100%; /* height will be set */ border: 1px solid #cbd5e1; border-radius: 0.5rem; background-color: #f8fafc;}
+        .array-rep { display: flex; flex-wrap: wrap; margin-top: 0.5rem; }
+        .array-cell { border: 1px solid #94a3b8; padding: 0.3rem 0.6rem; margin: 2px; background-color: #e0f2fe; font-size: 0.9em; min-width: 30px; text-align: center;}
+        .array-index { font-size: 0.7em; color: #64748b; text-align: center;}
+        .hidden { display: none; }
     </style>
 </head>
 <body class="bg-slate-50 font-sans flex min-h-screen">
@@ -63,72 +72,54 @@
             <p class="text-slate-700">This section introduces the concept of data structures and covers the basic building blocks: arrays and linked lists. Understanding these is crucial as they form the basis for more complex structures.</p>
             <div class="bg-white p-4 rounded-lg shadow">
                 <h3 class="text-xl font-semibold text-slate-700 mb-3">Fundamental Concrete Data Structures</h3>
-                <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-slate-200">
-                        <thead class="bg-slate-50">
-                            <tr>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Structure</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Operation</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Worst Case Runtime</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Notes</th>
-                            </tr>
-                        </thead>
-                        <tbody class="bg-white divide-y divide-slate-200">
-                            <tr>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900 row-span-2 align-top">Arrays</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-600">Access by index (`get`, `set`)</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-600 font-mono">O(1)</td>
-                                <td class="px-6 py-4 text-sm text-slate-600">Direct access. Static size (usually).</td>
-                            </tr>
-                            <tr>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-600">Insertion/Deletion (at index `i`)</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-600 font-mono">O(n)</td>
-                                <td class="px-6 py-4 text-sm text-slate-600">Requires shifting elements.</td>
-                            </tr>
+                 <div class="overflow-x-auto mb-4">
+                     <table class="min-w-full divide-y divide-slate-200">
+                         <thead class="bg-slate-50">
                              <tr>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900 row-span-4 align-top">Singly Linked Lists</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-600">Access/Search</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-600 font-mono">O(n)</td>
-                                <td class="px-6 py-4 text-sm text-slate-600">Sequential traversal needed. Dynamic size.</td>
-                            </tr>
-                            <tr>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-600">Insertion/Deletion (at head)</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-600 font-mono">O(1)</td>
-                                <td class="px-6 py-4 text-sm text-slate-600">Fast update at the beginning.</td>
-                            </tr>
-                            <tr>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-600">Insertion (at tail, with tail pointer)</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-600 font-mono">O(1)</td>
-                                <td class="px-6 py-4 text-sm text-slate-600">Requires maintaining a tail pointer.</td>
-                            </tr>
-                            <tr>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-600">Deletion (at tail, no `prev` pointer)</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-600 font-mono">O(n)</td>
-                                <td class="px-6 py-4 text-sm text-slate-600">Requires traversal to find the second-to-last node.</td>
-                            </tr>
-                            <tr>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900 row-span-3 align-top">Doubly Linked Lists (with Sentinels)</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-600">Access/Search</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-600 font-mono">O(n)</td>
-                                <td class="px-6 py-4 text-sm text-slate-600">Sequential traversal needed. Dynamic size.</td>
-                            </tr>
-                             <tr>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-600">Insertion/Deletion (at head/tail)</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-600 font-mono">O(1)</td>
-                                <td class="px-6 py-4 text-sm text-slate-600">Fast updates at both ends.</td>
-                            </tr>
-                             <tr>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-600">Insertion/Deletion (given node reference)</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-600 font-mono">O(1)</td>
-                                <td class="px-6 py-4 text-sm text-slate-600">Fast updates anywhere if position is known.</td>
-                            </tr>
-                        </tbody>
-                    </table>
+                                 <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Structure</th>
+                                 <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Operation</th>
+                                 <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Worst Case Runtime</th>
+                                 <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Notes</th>
+                             </tr>
+                         </thead>
+                         <tbody class="bg-white divide-y divide-slate-200">
+                            <tr> <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900 row-span-2 align-top">Arrays</td> <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-600">Access by index (`get`, `set`)</td> <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-600 font-mono">O(1)</td> <td class="px-6 py-4 text-sm text-slate-600">Direct access. Static size (usually).</td> </tr>
+                            <tr> <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-600">Insertion/Deletion (at index `i`)</td> <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-600 font-mono">O(n)</td> <td class="px-6 py-4 text-sm text-slate-600">Requires shifting elements.</td> </tr>
+                            <tr> <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900 row-span-4 align-top">Singly Linked Lists</td> <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-600">Access/Search</td> <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-600 font-mono">O(n)</td> <td class="px-6 py-4 text-sm text-slate-600">Sequential traversal needed. Dynamic size.</td> </tr>
+                            <tr> <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-600">Insertion/Deletion (at head)</td> <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-600 font-mono">O(1)</td> <td class="px-6 py-4 text-sm text-slate-600">Fast update at the beginning.</td> </tr>
+                            <tr> <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-600">Insertion (at tail, with tail pointer)</td> <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-600 font-mono">O(1)</td> <td class="px-6 py-4 text-sm text-slate-600">Requires maintaining a tail pointer.</td> </tr>
+                            <tr> <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-600">Deletion (at tail, no `prev` pointer)</td> <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-600 font-mono">O(n)</td> <td class="px-6 py-4 text-sm text-slate-600">Requires traversal to find the second-to-last node.</td> </tr>
+                            <tr> <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900 row-span-3 align-top">Doubly Linked Lists (with Sentinels)</td> <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-600">Access/Search</td> <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-600 font-mono">O(n)</td> <td class="px-6 py-4 text-sm text-slate-600">Sequential traversal needed. Dynamic size.</td> </tr>
+                            <tr> <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-600">Insertion/Deletion (at head/tail)</td> <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-600 font-mono">O(1)</td> <td class="px-6 py-4 text-sm text-slate-600">Fast updates at both ends.</td> </tr>
+                            <tr> <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-600">Insertion/Deletion (given node reference)</td> <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-600 font-mono">O(1)</td> <td class="px-6 py-4 text-sm text-slate-600">Fast updates anywhere if position is known.</td> </tr>
+                         </tbody>
+                     </table>
+                 </div>
+
+                 <!-- Linked List Visualization -->
+                <div class="mt-4 border-t pt-4">
+                    <h4 class="font-semibold text-slate-600 mb-2">Linked List Visualization (Singly)</h4>
+                    <div class="flex space-x-2 mb-2 items-center flex-wrap">
+                        <input type="text" id="sll-input" placeholder="Value" class="border rounded px-2 py-1 text-sm w-20">
+                        <button onclick="sllAddFirst()" class="bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600">Add First</button>
+                        <button onclick="sllAddLast()" class="bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600">Add Last</button>
+                        <button onclick="sllRemoveFirst()" class="bg-red-500 text-white px-3 py-1 rounded text-sm hover:bg-red-600">Remove First</button>
+                        <button onclick="sllRemoveLast()" class="bg-red-500 text-white px-3 py-1 rounded text-sm hover:bg-red-600">Remove Last</button>
+                        <span id="sll-status" class="text-sm text-slate-600 ml-auto"></span>
+                    </div>
+                    <div id="sll-viz" class="viz-container list-items">
+                        <span class="text-slate-500 mr-2">Head ➔</span>
+                        <!-- List nodes will be added here -->
+                        <span class="text-slate-500 ml-2">➔ Null</span>
+                    </div>
                 </div>
+                 <div class="professor-note">
+                     <strong>Professor's Note:</strong> Notice the O(n) cost for `removeLast` in a singly linked list without a tail pointer's predecessor reference. Doubly linked lists solve this by adding a `prev` pointer, making end operations O(1).
+                 </div>
             </div>
         </section>
 
-        <!-- Section 2: Analysis -->
+        <!-- Section 2: Analysis (Content remains the same) -->
         <section id="analysis" class="space-y-6 content-section hidden">
             <h2 class="text-2xl font-semibold text-sky-700 border-b pb-2">2. Algorithm Analysis</h2>
             <p class="text-slate-700">This section covers how we measure the efficiency of algorithms, focusing on worst-case running time and using Asymptotic Notation (Big-Oh, Big-Omega, Big-Theta) to describe growth rates.</p>
@@ -153,6 +144,9 @@
                      <canvas id="growthRateChart"></canvas>
                  </div>
                  <p class="text-sm text-slate-500 text-center">Logarithmic scale on both axes helps visualize differences.</p>
+                 <div class="professor-note">
+                     <strong>Professor's Note:</strong> Pay close attention to the chart. Even small differences in growth rate (like O(n log n) vs O(n²)) lead to massive performance differences for large inputs. This is why asymptotic analysis is so important!
+                 </div>
             </div>
              <div class="bg-white p-4 rounded-lg shadow">
                  <h3 class="text-xl font-semibold text-slate-700 mb-3">Prefix Averages Example</h3>
@@ -164,307 +158,55 @@
              </div>
         </section>
 
-        <!-- Section 3: Stacks, Queues, Deques -->
-        <section id="stqude" class="space-y-6 content-section hidden">
+        <!-- Section 3: Stacks, Queues, Deques (Content structure remains, viz added previously) -->
+         <section id="stqude" class="space-y-6 content-section hidden">
             <h2 class="text-2xl font-semibold text-sky-700 border-b pb-2">3. Stacks, Queues, Deques</h2>
             <p class="text-slate-700">These are fundamental linear data structures defined by how elements are added and removed. Stacks follow Last-In, First-Out (LIFO), Queues follow First-In, First-Out (FIFO), and Deques allow additions/removals at both ends.</p>
-
+             <div class="professor-note">
+                 <strong>Professor's Note:</strong> The choice between array and linked list implementation often depends on whether you need dynamic resizing (lists are better) or have a known maximum size and need cache efficiency (arrays can be better).
+             </div>
             <!-- Stack -->
-            <div class="bg-white p-4 rounded-lg shadow">
-                <h3 class="text-xl font-semibold text-slate-700 mb-3">Stack ADT (LIFO)</h3>
-                <p class="text-slate-600 mb-3">Operations primarily happen at the "top".</p>
-                <div class="grid md:grid-cols-2 gap-4">
-                    <div>
-                        <h4 class="font-semibold text-slate-600 mb-2">Array Implementation</h4>
-                        <ul class="list-disc list-inside text-sm text-slate-600 space-y-1">
-                            <li>`push(e)`: O(1)*</li>
-                            <li>`pop()`: O(1)</li>
-                            <li>`top()`: O(1)</li>
-                            <li>`size()`: O(1)</li>
-                            <li>`isEmpty()`: O(1)</li>
-                        </ul>
-                        <p class="text-xs text-slate-500 mt-1">*Amortized O(1) for extendible arrays.</p>
-                    </div>
-                    <div>
-                        <h4 class="font-semibold text-slate-600 mb-2">Linked List Implementation</h4>
-                         <ul class="list-disc list-inside text-sm text-slate-600 space-y-1">
-                            <li>`push(e)`: O(1)</li>
-                            <li>`pop()`: O(1)</li>
-                            <li>`top()`: O(1)</li>
-                            <li>`size()`: O(1)</li>
-                            <li>`isEmpty()`: O(1)</li>
-                        </ul>
-                    </div>
-                </div>
-                 <!-- Simple Stack Visualization -->
-                <div class="mt-4 border-t pt-4">
-                    <h4 class="font-semibold text-slate-600 mb-2">Simple Stack Viz</h4>
-                    <div class="flex space-x-2 mb-2">
-                        <input type="text" id="stack-input" placeholder="Value" class="border rounded px-2 py-1 text-sm">
-                        <button onclick="stackPush()" class="bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600">Push</button>
-                        <button onclick="stackPop()" class="bg-red-500 text-white px-3 py-1 rounded text-sm hover:bg-red-600">Pop</button>
-                    </div>
-                    <div id="stack-viz" class="viz-container stack-items">
-                        <!-- Stack items will be added here -->
-                    </div>
-                    <p id="stack-output" class="text-sm mt-2 text-slate-600"></p>
-                </div>
-            </div>
-
+            <div class="bg-white p-4 rounded-lg shadow"> <h3 class="text-xl font-semibold text-slate-700 mb-3">Stack ADT (LIFO)</h3> <p class="text-slate-600 mb-3">Operations primarily happen at the "top".</p> <div class="grid md:grid-cols-2 gap-4"> <div> <h4 class="font-semibold text-slate-600 mb-2">Array Implementation</h4> <ul class="list-disc list-inside text-sm text-slate-600 space-y-1"> <li>`push(e)`: O(1)*</li> <li>`pop()`: O(1)</li> <li>`top()`: O(1)</li> <li>`size()`: O(1)</li> <li>`isEmpty()`: O(1)</li> </ul> <p class="text-xs text-slate-500 mt-1">*Amortized O(1) for extendible arrays.</p> </div> <div> <h4 class="font-semibold text-slate-600 mb-2">Linked List Implementation</h4> <ul class="list-disc list-inside text-sm text-slate-600 space-y-1"> <li>`push(e)`: O(1)</li> <li>`pop()`: O(1)</li> <li>`top()`: O(1)</li> <li>`size()`: O(1)</li> <li>`isEmpty()`: O(1)</li> </ul> </div> </div> <div class="mt-4 border-t pt-4"> <h4 class="font-semibold text-slate-600 mb-2">Simple Stack Viz</h4> <div class="flex space-x-2 mb-2"> <input type="text" id="stack-input" placeholder="Value" class="border rounded px-2 py-1 text-sm"> <button onclick="stackPush()" class="bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600">Push</button> <button onclick="stackPop()" class="bg-red-500 text-white px-3 py-1 rounded text-sm hover:bg-red-600">Pop</button> </div> <div id="stack-viz" class="viz-container stack-items"></div> <p id="stack-output" class="text-sm mt-2 text-slate-600"></p> </div> </div>
             <!-- Queue -->
-             <div class="bg-white p-4 rounded-lg shadow">
-                <h3 class="text-xl font-semibold text-slate-700 mb-3">Queue ADT (FIFO)</h3>
-                 <p class="text-slate-600 mb-3">Insertions at the "rear", removals from the "front".</p>
-                 <div class="grid md:grid-cols-2 gap-4">
-                    <div>
-                        <h4 class="font-semibold text-slate-600 mb-2">Array (Circular) Implementation</h4>
-                        <ul class="list-disc list-inside text-sm text-slate-600 space-y-1">
-                            <li>`enqueue(e)`: O(1)*</li>
-                            <li>`dequeue()`: O(1)</li>
-                            <li>`first()`: O(1)</li>
-                            <li>`size()`: O(1)</li>
-                            <li>`isEmpty()`: O(1)</li>
-                        </ul>
-                         <p class="text-xs text-slate-500 mt-1">*Amortized O(1) for extendible arrays.</p>
-                    </div>
-                    <div>
-                        <h4 class="font-semibold text-slate-600 mb-2">Linked List Implementation</h4>
-                         <ul class="list-disc list-inside text-sm text-slate-600 space-y-1">
-                            <li>`enqueue(e)`: O(1)</li>
-                            <li>`dequeue()`: O(1)</li>
-                            <li>`first()`: O(1)</li>
-                            <li>`size()`: O(1)</li>
-                            <li>`isEmpty()`: O(1)</li>
-                        </ul>
-                    </div>
-                 </div>
-                 <!-- Simple Queue Visualization -->
-                <div class="mt-4 border-t pt-4">
-                    <h4 class="font-semibold text-slate-600 mb-2">Simple Queue Viz</h4>
-                    <div class="flex space-x-2 mb-2">
-                        <input type="text" id="queue-input" placeholder="Value" class="border rounded px-2 py-1 text-sm">
-                        <button onclick="queueEnqueue()" class="bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600">Enqueue</button>
-                        <button onclick="queueDequeue()" class="bg-red-500 text-white px-3 py-1 rounded text-sm hover:bg-red-600">Dequeue</button>
-                    </div>
-                    <div id="queue-viz" class="viz-container queue-items">
-                        <!-- Queue items will be added here -->
-                    </div>
-                    <p id="queue-output" class="text-sm mt-2 text-slate-600"></p>
-                </div>
-            </div>
-
+             <div class="bg-white p-4 rounded-lg shadow"> <h3 class="text-xl font-semibold text-slate-700 mb-3">Queue ADT (FIFO)</h3> <p class="text-slate-600 mb-3">Insertions at the "rear", removals from the "front".</p> <div class="grid md:grid-cols-2 gap-4"> <div> <h4 class="font-semibold text-slate-600 mb-2">Array (Circular) Implementation</h4> <ul class="list-disc list-inside text-sm text-slate-600 space-y-1"> <li>`enqueue(e)`: O(1)*</li> <li>`dequeue()`: O(1)</li> <li>`first()`: O(1)</li> <li>`size()`: O(1)</li> <li>`isEmpty()`: O(1)</li> </ul> <p class="text-xs text-slate-500 mt-1">*Amortized O(1) for extendible arrays.</p> </div> <div> <h4 class="font-semibold text-slate-600 mb-2">Linked List Implementation</h4> <ul class="list-disc list-inside text-sm text-slate-600 space-y-1"> <li>`enqueue(e)`: O(1)</li> <li>`dequeue()`: O(1)</li> <li>`first()`: O(1)</li> <li>`size()`: O(1)</li> <li>`isEmpty()`: O(1)</li> </ul> </div> </div> <div class="mt-4 border-t pt-4"> <h4 class="font-semibold text-slate-600 mb-2">Simple Queue Viz</h4> <div class="flex space-x-2 mb-2"> <input type="text" id="queue-input" placeholder="Value" class="border rounded px-2 py-1 text-sm"> <button onclick="queueEnqueue()" class="bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600">Enqueue</button> <button onclick="queueDequeue()" class="bg-red-500 text-white px-3 py-1 rounded text-sm hover:bg-red-600">Dequeue</button> </div> <div id="queue-viz" class="viz-container queue-items"></div> <p id="queue-output" class="text-sm mt-2 text-slate-600"></p> </div> </div>
             <!-- Deque -->
-            <div class="bg-white p-4 rounded-lg shadow">
-                <h3 class="text-xl font-semibold text-slate-700 mb-3">Deque ADT</h3>
-                <p class="text-slate-600 mb-3">Supports insertion/removal at both front and rear.</p>
-                 <h4 class="font-semibold text-slate-600 mb-2">Doubly Linked List Implementation</h4>
-                 <ul class="list-disc list-inside text-sm text-slate-600 space-y-1">
-                    <li>`addFirst(e)`, `addLast(e)`: O(1)</li>
-                    <li>`removeFirst()`, `removeLast()`: O(1)</li>
-                    <li>`first()`, `last()`: O(1)</li>
-                    <li>`size()`, `isEmpty()`: O(1)</li>
-                </ul>
-                <p class="text-sm text-slate-500 mt-2">Stacks and Queues can be efficiently implemented using a Deque.</p>
-            </div>
+            <div class="bg-white p-4 rounded-lg shadow"> <h3 class="text-xl font-semibold text-slate-700 mb-3">Deque ADT</h3> <p class="text-slate-600 mb-3">Supports insertion/removal at both front and rear.</p> <h4 class="font-semibold text-slate-600 mb-2">Doubly Linked List Implementation</h4> <ul class="list-disc list-inside text-sm text-slate-600 space-y-1"> <li>`addFirst(e)`, `addLast(e)`: O(1)</li> <li>`removeFirst()`, `removeLast()`: O(1)</li> <li>`first()`, `last()`: O(1)</li> <li>`size()`, `isEmpty()`: O(1)</li> </ul> <p class="text-sm text-slate-500 mt-2">Stacks and Queues can be efficiently implemented using a Deque.</p> </div>
         </section>
 
-        <!-- Section 4: Lists -->
+        <!-- Section 4: Lists (Content structure remains) -->
         <section id="lists" class="space-y-6 content-section hidden">
             <h2 class="text-2xl font-semibold text-sky-700 border-b pb-2">4. Lists</h2>
             <p class="text-slate-700">Lists maintain linear order and allow access/modification based on index (Array-List) or position (Positional-List). The Sequence ADT combines both concepts.</p>
-
-             <div class="bg-white p-4 rounded-lg shadow">
-                <h3 class="text-xl font-semibold text-slate-700 mb-3">Array-List ADT (Index-based)</h3>
-                 <h4 class="font-semibold text-slate-600 mb-2">Array / Extendible Array Implementation</h4>
-                 <ul class="list-disc list-inside text-sm text-slate-600 space-y-1">
-                    <li>`get(i)`, `set(i, e)`: O(1)</li>
-                    <li>`add(i, e)`, `remove(i)`: O(n)</li>
-                    <li>`size()`, `isEmpty()`: O(1)</li>
-                </ul>
-                <p class="text-sm text-slate-500 mt-2">Extendible arrays offer O(1) amortized time for additions that trigger resizing (using doubling strategy).</p>
+             <div class="professor-note">
+                 <strong>Professor's Note:</strong> The Sequence ADT provides flexibility but choosing the right underlying implementation (array vs. linked list) is key. Arrays excel at index-based access (`get`/`set`), while linked lists excel at position-based insertions/deletions (`addAfter`/`remove(p)`).
              </div>
-
-             <div class="bg-white p-4 rounded-lg shadow">
-                 <h3 class="text-xl font-semibold text-slate-700 mb-3">Positional-List ADT (Position-based)</h3>
-                  <h4 class="font-semibold text-slate-600 mb-2">Doubly Linked List Implementation</h4>
-                  <ul class="list-disc list-inside text-sm text-slate-600 space-y-1">
-                    <li>All operations (`first`, `last`, `before`, `after`, `addFirst`, `addLast`, `addBefore`, `addAfter`, `set`, `remove(p)`, `size`, `isEmpty`): O(1)</li>
-                 </ul>
-             </div>
-
-             <div class="bg-white p-4 rounded-lg shadow">
-                <h3 class="text-xl font-semibold text-slate-700 mb-3">Sequence ADT Comparison</h3>
-                 <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-slate-200">
-                        <thead class="bg-slate-50">
-                            <tr>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Operation Type</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Operation</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Array-based Runtime</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Linked List-based Runtime</th>
-                            </tr>
-                        </thead>
-                         <tbody class="bg-white divide-y divide-slate-200">
-                            <tr>
-                                <td class="px-6 py-4 text-sm font-medium text-slate-900 row-span-2 align-top">Index-based</td>
-                                <td class="px-6 py-4 text-sm text-slate-600">`get`, `set`</td>
-                                <td class="px-6 py-4 text-sm text-slate-600 font-mono">O(1)</td>
-                                <td class="px-6 py-4 text-sm text-slate-600 font-mono">O(n)</td>
-                            </tr>
-                            <tr>
-                                <td class="px-6 py-4 text-sm text-slate-600">`add(i,e)`, `remove(i)`</td>
-                                <td class="px-6 py-4 text-sm text-slate-600 font-mono">O(n)</td>
-                                <td class="px-6 py-4 text-sm text-slate-600 font-mono">O(n)</td>
-                             </tr>
-                             <tr>
-                                <td class="px-6 py-4 text-sm font-medium text-slate-900 row-span-2 align-top">Position-based</td>
-                                <td class="px-6 py-4 text-sm text-slate-600">`before`, `after`, `addFirst`, `addLast`, `set`, `remove(p)` etc.</td>
-                                <td class="px-6 py-4 text-sm text-slate-600 font-mono">O(n) (most involve shifts)</td>
-                                <td class="px-6 py-4 text-sm text-slate-600 font-mono">O(1)</td>
-                            </tr>
-                             <tr>
-                                <td class="px-6 py-4 text-sm text-slate-600">`first`, `last`</td>
-                                <td class="px-6 py-4 text-sm text-slate-600 font-mono">O(1)</td>
-                                <td class="px-6 py-4 text-sm text-slate-600 font-mono">O(1)</td>
-                             </tr>
-                              <tr>
-                                <td class="px-6 py-4 text-sm font-medium text-slate-900 align-top">Bridge Methods</td>
-                                <td class="px-6 py-4 text-sm text-slate-600">`atIndex`, `indexOf`</td>
-                                <td class="px-6 py-4 text-sm text-slate-600 font-mono">O(1)</td>
-                                <td class="px-6 py-4 text-sm text-slate-600 font-mono">O(n)</td>
-                            </tr>
-                         </tbody>
-                    </table>
-                 </div>
-            </div>
+             <div class="bg-white p-4 rounded-lg shadow"> <h3 class="text-xl font-semibold text-slate-700 mb-3">Array-List ADT (Index-based)</h3> <h4 class="font-semibold text-slate-600 mb-2">Array / Extendible Array Implementation</h4> <ul class="list-disc list-inside text-sm text-slate-600 space-y-1"> <li>`get(i)`, `set(i, e)`: O(1)</li> <li>`add(i, e)`, `remove(i)`: O(n)</li> <li>`size()`, `isEmpty()`: O(1)</li> </ul> <p class="text-sm text-slate-500 mt-2">Extendible arrays offer O(1) amortized time for additions that trigger resizing (using doubling strategy).</p> </div>
+             <div class="bg-white p-4 rounded-lg shadow"> <h3 class="text-xl font-semibold text-slate-700 mb-3">Positional-List ADT (Position-based)</h3> <h4 class="font-semibold text-slate-600 mb-2">Doubly Linked List Implementation</h4> <ul class="list-disc list-inside text-sm text-slate-600 space-y-1"> <li>All operations (`first`, `last`, `before`, `after`, `addFirst`, `addLast`, `addBefore`, `addAfter`, `set`, `remove(p)`, `size`, `isEmpty`): O(1)</li> </ul> </div>
+             <div class="bg-white p-4 rounded-lg shadow"> <h3 class="text-xl font-semibold text-slate-700 mb-3">Sequence ADT Comparison</h3> <div class="overflow-x-auto"> <table class="min-w-full divide-y divide-slate-200"> <thead class="bg-slate-50"> <tr> <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Operation Type</th> <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Operation</th> <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Array-based Runtime</th> <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Linked List-based Runtime</th> </tr> </thead> <tbody class="bg-white divide-y divide-slate-200"> <tr> <td class="px-6 py-4 text-sm font-medium text-slate-900 row-span-2 align-top">Index-based</td> <td class="px-6 py-4 text-sm text-slate-600">`get`, `set`</td> <td class="px-6 py-4 text-sm text-slate-600 font-mono">O(1)</td> <td class="px-6 py-4 text-sm text-slate-600 font-mono">O(n)</td> </tr> <tr> <td class="px-6 py-4 text-sm text-slate-600">`add(i,e)`, `remove(i)`</td> <td class="px-6 py-4 text-sm text-slate-600 font-mono">O(n)</td> <td class="px-6 py-4 text-sm text-slate-600 font-mono">O(n)</td> </tr> <tr> <td class="px-6 py-4 text-sm font-medium text-slate-900 row-span-2 align-top">Position-based</td> <td class="px-6 py-4 text-sm text-slate-600">`before`, `after`, `addFirst`, `addLast`, `set`, `remove(p)` etc.</td> <td class="px-6 py-4 text-sm text-slate-600 font-mono">O(n) (most involve shifts)</td> <td class="px-6 py-4 text-sm text-slate-600 font-mono">O(1)</td> </tr> <tr> <td class="px-6 py-4 text-sm text-slate-600">`first`, `last`</td> <td class="px-6 py-4 text-sm text-slate-600 font-mono">O(1)</td> <td class="px-6 py-4 text-sm text-slate-600 font-mono">O(1)</td> </tr> <tr> <td class="px-6 py-4 text-sm font-medium text-slate-900 align-top">Bridge Methods</td> <td class="px-6 py-4 text-sm text-slate-600">`atIndex`, `indexOf`</td> <td class="px-6 py-4 text-sm text-slate-600 font-mono">O(1)</td> <td class="px-6 py-4 text-sm text-slate-600 font-mono">O(n)</td> </tr> </tbody> </table> </div> </div>
         </section>
 
-        <!-- Section 5: Priority Queues -->
+        <!-- Section 5: Priority Queues (Content structure remains) -->
         <section id="pq" class="space-y-6 content-section hidden">
-            <h2 class="text-2xl font-semibold text-sky-700 border-b pb-2">5. Priority Queues (PQ)</h2>
+             <h2 class="text-2xl font-semibold text-sky-700 border-b pb-2">5. Priority Queues (PQ)</h2>
              <p class="text-slate-700">Priority Queues manage entries based on key priority, allowing efficient retrieval of the minimum (or maximum) element. They are crucial for various algorithms, including sorting.</p>
-             <div class="bg-white p-4 rounded-lg shadow">
-                 <h3 class="text-xl font-semibold text-slate-700 mb-3">Implementations & Runtimes</h3>
-                 <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-slate-200">
-                        <thead class="bg-slate-50">
-                            <tr>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Implementation</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">`insert(k,v)`</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">`min()`</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">`removeMin()`</th>
-                            </tr>
-                        </thead>
-                         <tbody class="bg-white divide-y divide-slate-200">
-                             <tr>
-                                <td class="px-6 py-4 text-sm font-medium text-slate-900">Unsorted Sequence</td>
-                                <td class="px-6 py-4 text-sm text-slate-600 font-mono">O(1)</td>
-                                <td class="px-6 py-4 text-sm text-slate-600 font-mono">O(n)</td>
-                                <td class="px-6 py-4 text-sm text-slate-600 font-mono">O(n)</td>
-                            </tr>
-                             <tr>
-                                <td class="px-6 py-4 text-sm font-medium text-slate-900">Sorted Sequence</td>
-                                <td class="px-6 py-4 text-sm text-slate-600 font-mono">O(n)</td>
-                                <td class="px-6 py-4 text-sm text-slate-600 font-mono">O(1)</td>
-                                <td class="px-6 py-4 text-sm text-slate-600 font-mono">O(1)</td>
-                             </tr>
-                             <tr>
-                                <td class="px-6 py-4 text-sm font-medium text-slate-900">Heap (See Section 7)</td>
-                                <td class="px-6 py-4 text-sm text-slate-600 font-mono">O(log n)</td>
-                                <td class="px-6 py-4 text-sm text-slate-600 font-mono">O(1)</td>
-                                <td class="px-6 py-4 text-sm text-slate-600 font-mono">O(log n)</td>
-                             </tr>
-                         </tbody>
-                    </table>
-                 </div>
+              <div class="professor-note">
+                 <strong>Professor's Note:</strong> While simple, list-based PQs aren't very efficient. Heaps (covered next) provide much better balanced performance for PQ operations, making them the preferred implementation in practice.
              </div>
-             <div class="bg-white p-4 rounded-lg shadow">
-                 <h3 class="text-xl font-semibold text-slate-700 mb-3">Sorting with PQs</h3>
-                 <ul class="list-disc list-inside text-slate-600 space-y-1">
-                     <li>**Selection Sort:** Uses unsorted sequence PQ. Overall O(n²).</li>
-                     <li>**Insertion Sort:** Uses sorted sequence PQ. Overall O(n²).</li>
-                     <li>**Heap Sort:** Uses heap PQ. Overall O(n log n). (See Section 7).</li>
-                 </ul>
-             </div>
+             <div class="bg-white p-4 rounded-lg shadow"> <h3 class="text-xl font-semibold text-slate-700 mb-3">Implementations & Runtimes</h3> <div class="overflow-x-auto"> <table class="min-w-full divide-y divide-slate-200"> <thead class="bg-slate-50"> <tr> <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Implementation</th> <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">`insert(k,v)`</th> <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">`min()`</th> <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">`removeMin()`</th> </tr> </thead> <tbody class="bg-white divide-y divide-slate-200"> <tr> <td class="px-6 py-4 text-sm font-medium text-slate-900">Unsorted Sequence</td> <td class="px-6 py-4 text-sm text-slate-600 font-mono">O(1)</td> <td class="px-6 py-4 text-sm text-slate-600 font-mono">O(n)</td> <td class="px-6 py-4 text-sm text-slate-600 font-mono">O(n)</td> </tr> <tr> <td class="px-6 py-4 text-sm font-medium text-slate-900">Sorted Sequence</td> <td class="px-6 py-4 text-sm text-slate-600 font-mono">O(n)</td> <td class="px-6 py-4 text-sm text-slate-600 font-mono">O(1)</td> <td class="px-6 py-4 text-sm text-slate-600 font-mono">O(1)</td> </tr> <tr> <td class="px-6 py-4 text-sm font-medium text-slate-900">Heap (See Section 7)</td> <td class="px-6 py-4 text-sm text-slate-600 font-mono">O(log n)</td> <td class="px-6 py-4 text-sm text-slate-600 font-mono">O(1)</td> <td class="px-6 py-4 text-sm text-slate-600 font-mono">O(log n)</td> </tr> </tbody> </table> </div> </div>
+             <div class="bg-white p-4 rounded-lg shadow"> <h3 class="text-xl font-semibold text-slate-700 mb-3">Sorting with PQs</h3> <ul class="list-disc list-inside text-slate-600 space-y-1"> <li>**Selection Sort:** Uses unsorted sequence PQ. Overall O(n²).</li> <li>**Insertion Sort:** Uses sorted sequence PQ. Overall O(n²).</li> <li>**Heap Sort:** Uses heap PQ. Overall O(n log n). (See Section 7).</li> </ul> </div>
         </section>
 
-        <!-- Section 6: Trees -->
+        <!-- Section 6: Trees (Content structure remains, properties added previously) -->
         <section id="trees" class="space-y-6 content-section hidden">
              <h2 class="text-2xl font-semibold text-sky-700 border-b pb-2">6. Trees</h2>
              <p class="text-slate-700">Trees are non-linear structures representing hierarchical relationships. This section covers general trees and specializes in binary trees, including their properties, traversals, and implementations. Notation: n=nodes, i=internal nodes, e=external nodes (leaves), h=height.</p>
-
-             <div class="bg-white p-4 rounded-lg shadow space-y-4">
-                 <h3 class="text-xl font-semibold text-slate-700">Tree Terminology & Types</h3>
-                 <ul class="list-disc list-inside text-slate-600 space-y-1">
-                     <li>Root, Parent, Child, Leaf, Internal Node, Depth, Height, Subtree.</li>
-                     <li>**Binary Tree:** Max 2 children (left/right).</li>
-                     <li>**Full (Proper) Binary Tree:** Nodes have 0 or 2 children.</li>
-                     <li>**Complete Binary Tree:** Filled level by level, left to right. Height <code>h = floor(log<sub>2</sub> n)</code>.</li>
-                     <li>**Perfect Binary Tree:** Full, all leaves at max depth.</li>
-                 </ul>
+              <div class="professor-note">
+                 <strong>Professor's Note:</strong> Tree traversals are fundamental algorithms. Make sure you understand how Preorder, Inorder, and Postorder visit nodes differently and their common applications (e.g., printing expressions, directory size calculation).
              </div>
-
-             <div class="bg-white p-4 rounded-lg shadow space-y-4">
-                <h3 class="text-xl font-semibold text-slate-700 mb-3">Binary Tree Properties</h3>
-                 <div class="grid md:grid-cols-2 gap-6">
-                     <div>
-                         <h4 class="font-semibold text-slate-600 mb-2">General Binary Tree</h4>
-                         <ul class="list-disc list-inside text-sm text-slate-600 space-y-1 prop-list">
-                            <li><code>h + 1 &le; n &le; 2<sup>h+1</sup> - 1</code></li>
-                            <li><code>1 &le; e &le; 2<sup>h</sup></code></li>
-                            <li><code>h &le; i &le; 2<sup>h</sup> - 1</code></li>
-                            <li><code>log<sub>2</sub>(n+1) - 1 &le; h &le; n - 1</code></li>
-                        </ul>
-                     </div>
-                     <div>
-                         <h4 class="font-semibold text-slate-600 mb-2">Full Binary Tree</h4>
-                         <ul class="list-disc list-inside text-sm text-slate-600 space-y-1 prop-list">
-                            <li><code>e = i + 1</code></li>
-                            <li><code>n = 2e - 1 = 2i + 1</code></li>
-                            <li><code>h + 1 &le; e &le; 2<sup>h</sup></code></li>
-                            <li><code>h &le; i &le; 2<sup>h</sup> - 1</code></li>
-                            <li><code>log<sub>2</sub>(n+1) - 1 &le; h &le; (n-1)/2</code></li>
-                        </ul>
-                     </div>
-                     <div>
-                         <h4 class="font-semibold text-slate-600 mb-2">Perfect Binary Tree</h4>
-                         <ul class="list-disc list-inside text-sm text-slate-600 space-y-1 prop-list">
-                            <li><code>n = 2<sup>h+1</sup> - 1</code></li>
-                            <li><code>e = 2<sup>h</sup></code></li>
-                            <li><code>i = 2<sup>h</sup> - 1</code></li>
-                            <li><code>h = log<sub>2</sub>(n+1) - 1</code></li>
-                         </ul>
-                     </div>
-                     <div>
-                         <h4 class="font-semibold text-slate-600 mb-2">Complete Binary Tree</h4>
-                         <ul class="list-disc list-inside text-sm text-slate-600 space-y-1 prop-list">
-                            <li><code>2<sup>h</sup> &le; n &le; 2<sup>h+1</sup> - 1</code></li>
-                            <li><code>h = floor(log<sub>2</sub> n)</code></li>
-                        </ul>
-                     </div>
-                 </div>
-            </div>
-
-
-             <div class="bg-white p-4 rounded-lg shadow space-y-4">
-                 <h3 class="text-xl font-semibold text-slate-700">Traversals</h3>
-                 <p class="text-slate-600">Systematic ways to visit all nodes. Runtime O(n).</p>
-                 <ul class="list-disc list-inside text-slate-600 space-y-1">
-                     <li>**Preorder:** Visit Root -> Visit Left Subtree -> Visit Right Subtree.</li>
-                     <li>**Postorder:** Visit Left Subtree -> Visit Right Subtree -> Visit Root.</li>
-                     <li>**Inorder (Binary Trees only):** Visit Left Subtree -> Visit Root -> Visit Right Subtree.</li>
-                     <li>**Euler Tour (Binary Trees):** Visits each node 3 times (left, below, right), generalizing other traversals.</li>
-                 </ul>
-             </div>
-
-             <div class="bg-white p-4 rounded-lg shadow space-y-4">
-                 <h3 class="text-xl font-semibold text-slate-700">Implementations & Runtimes</h3>
-                 <ul class="list-disc list-inside text-slate-600 space-y-1">
-                     <li>**Linked (Binary):** `parent`, `leftChild`, `rightChild`, queries, basic updates - **O(1)**. Space O(n).</li>
-                     <li>**Array (Complete Binary):** `parent`, `children` (index math), queries - **O(1)**. Space O(n) or O(N).</li>
-                     <li>**Linked (General):** `parent`, `root`, queries - **O(1)**. `children` - **O(c<sub>p</sub>)**. Space O(n).</li>
-                 </ul>
-             </div>
+             <div class="bg-white p-4 rounded-lg shadow space-y-4"> <h3 class="text-xl font-semibold text-slate-700">Tree Terminology & Types</h3> <ul class="list-disc list-inside text-slate-600 space-y-1"> <li>Root, Parent, Child, Leaf, Internal Node, Depth, Height, Subtree.</li> <li>**Binary Tree:** Max 2 children (left/right).</li> <li>**Full (Proper) Binary Tree:** Nodes have 0 or 2 children.</li> <li>**Complete Binary Tree:** Filled level by level, left to right. Height <code>h = floor(log<sub>2</sub> n)</code>.</li> <li>**Perfect Binary Tree:** Full, all leaves at max depth.</li> </ul> </div>
+             <div class="bg-white p-4 rounded-lg shadow space-y-4"> <h3 class="text-xl font-semibold text-slate-700 mb-3">Binary Tree Properties</h3> <div class="grid md:grid-cols-2 gap-6"> <div> <h4 class="font-semibold text-slate-600 mb-2">General Binary Tree</h4> <ul class="list-disc list-inside text-sm text-slate-600 space-y-1 prop-list"> <li><code>h + 1 &le; n &le; 2<sup>h+1</sup> - 1</code></li> <li><code>1 &le; e &le; 2<sup>h</sup></code></li> <li><code>h &le; i &le; 2<sup>h</sup> - 1</code></li> <li><code>log<sub>2</sub>(n+1) - 1 &le; h &le; n - 1</code></li> </ul> </div> <div> <h4 class="font-semibold text-slate-600 mb-2">Full Binary Tree</h4> <ul class="list-disc list-inside text-sm text-slate-600 space-y-1 prop-list"> <li><code>e = i + 1</code></li> <li><code>n = 2e - 1 = 2i + 1</code></li> <li><code>h + 1 &le; e &le; 2<sup>h</sup></code></li> <li><code>h &le; i &le; 2<sup>h</sup> - 1</code></li> <li><code>log<sub>2</sub>(n+1) - 1 &le; h &le; (n-1)/2</code></li> </ul> </div> <div> <h4 class="font-semibold text-slate-600 mb-2">Perfect Binary Tree</h4> <ul class="list-disc list-inside text-sm text-slate-600 space-y-1 prop-list"> <li><code>n = 2<sup>h+1</sup> - 1</code></li> <li><code>e = 2<sup>h</sup></code></li> <li><code>i = 2<sup>h</sup> - 1</code></li> <li><code>h = log<sub>2</sub>(n+1) - 1</code></li> </ul> </div> <div> <h4 class="font-semibold text-slate-600 mb-2">Complete Binary Tree</h4> <ul class="list-disc list-inside text-sm text-slate-600 space-y-1 prop-list"> <li><code>2<sup>h</sup> &le; n &le; 2<sup>h+1</sup> - 1</code></li> <li><code>h = floor(log<sub>2</sub> n)</code></li> </ul> </div> </div> </div>
+             <div class="bg-white p-4 rounded-lg shadow space-y-4"> <h3 class="text-xl font-semibold text-slate-700">Traversals</h3> <p class="text-slate-600">Systematic ways to visit all nodes. Runtime O(n).</p> <ul class="list-disc list-inside text-slate-600 space-y-1"> <li>**Preorder:** Visit Root -> Visit Left Subtree -> Visit Right Subtree.</li> <li>**Postorder:** Visit Left Subtree -> Visit Right Subtree -> Visit Root.</li> <li>**Inorder (Binary Trees only):** Visit Left Subtree -> Visit Root -> Visit Right Subtree.</li> <li>**Euler Tour (Binary Trees):** Visits each node 3 times (left, below, right), generalizing other traversals.</li> </ul> </div>
+             <div class="bg-white p-4 rounded-lg shadow space-y-4"> <h3 class="text-xl font-semibold text-slate-700">Implementations & Runtimes</h3> <ul class="list-disc list-inside text-slate-600 space-y-1"> <li>**Linked (Binary):** `parent`, `leftChild`, `rightChild`, queries, basic updates - **O(1)**. Space O(n).</li> <li>**Array (Complete Binary):** `parent`, `children` (index math), queries - **O(1)**. Space O(n) or O(N).</li> <li>**Linked (General):** `parent`, `root`, queries - **O(1)**. `children` - **O(c<sub>p</sub>)**. Space O(n).</li> </ul> </div>
         </section>
 
         <!-- Section 7: Heaps -->
@@ -478,53 +220,27 @@
                     <li>Typically implemented using an Array-List due to the complete tree structure.</li>
                     <li>Parent/Child navigation using index math: O(1).</li>
                 </ul>
+                <div class="professor-note">
+                    <strong>Professor's Note:</strong> The array implementation is highly efficient for heaps because the complete binary tree structure means there are no "gaps" in the array, and finding parent/children is simple arithmetic, avoiding pointer overhead.
+                </div>
             </div>
-             <div class="bg-white p-4 rounded-lg shadow space-y-4">
-                <h3 class="text-xl font-semibold text-slate-700">Heap Operations (Min-Heap Example)</h3>
-                 <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-slate-200">
-                         <thead class="bg-slate-50">
-                             <tr>
-                                 <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Operation</th>
-                                 <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Worst Case Runtime</th>
-                                 <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Key Steps</th>
-                            </tr>
-                         </thead>
-                         <tbody class="bg-white divide-y divide-slate-200">
-                            <tr>
-                                <td class="px-6 py-4 text-sm font-medium text-slate-900">`insert(k, v)`</td>
-                                <td class="px-6 py-4 text-sm text-slate-600 font-mono">O(log n)</td>
-                                <td class="px-6 py-4 text-sm text-slate-600">Add to end, Upheap.</td>
-                            </tr>
-                             <tr>
-                                <td class="px-6 py-4 text-sm font-medium text-slate-900">`min()`</td>
-                                <td class="px-6 py-4 text-sm text-slate-600 font-mono">O(1)</td>
-                                <td class="px-6 py-4 text-sm text-slate-600">Return root element.</td>
-                            </tr>
-                             <tr>
-                                <td class="px-6 py-4 text-sm font-medium text-slate-900">`removeMin()`</td>
-                                <td class="px-6 py-4 text-sm text-slate-600 font-mono">O(log n)</td>
-                                <td class="px-6 py-4 text-sm text-slate-600">Replace root with last, remove last, Downheap.</td>
-                            </tr>
-                            <tr>
-                                <td class="px-6 py-4 text-sm font-medium text-slate-900">Bottom-Up Construction</td>
-                                <td class="px-6 py-4 text-sm text-slate-600 font-mono">O(n)</td>
-                                <td class="px-6 py-4 text-sm text-slate-600">Downheap from last internal node up to root.</td>
-                             </tr>
-                         </tbody>
-                    </table>
-                 </div>
+            <div class="bg-white p-4 rounded-lg shadow space-y-4">
+                <h3 class="text-xl font-semibold text-slate-700">Interactive Heap Visualization (Min-Heap)</h3>
+                <div class="flex space-x-2 mb-2 items-center flex-wrap">
+                    <input type="number" id="heap-input" placeholder="Value (e.g., 5)" class="border rounded px-2 py-1 text-sm w-28">
+                    <button onclick="heapInsert()" class="bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600">Insert</button>
+                    <button onclick="heapRemoveMin()" class="bg-red-500 text-white px-3 py-1 rounded text-sm hover:bg-red-600">Remove Min</button>
+                    <button onclick="heapBuildExample()" class="bg-green-500 text-white px-3 py-1 rounded text-sm hover:bg-green-600">Build Example</button>
+                    <span id="heap-status" class="text-sm text-slate-600 ml-auto"></span>
+                </div>
+                <div>
+                     <canvas id="heap-canvas" class="tree-canvas" height="300"></canvas>
+                     <h4 class="font-semibold text-slate-600 mt-3 mb-1">Array Representation:</h4>
+                     <div id="heap-array-rep" class="array-rep"></div>
+                </div>
             </div>
-             <div class="bg-white p-4 rounded-lg shadow space-y-4">
-                 <h3 class="text-xl font-semibold text-slate-700">Heap Sort</h3>
-                 <p class="text-slate-600">Efficient comparison-based sorting algorithm.</p>
-                 <ul class="list-disc list-inside text-slate-600 space-y-1">
-                     <li>Build Heap (Max-Heap for in-place): O(n).</li>
-                     <li>Repeatedly swap root with last element, reduce heap size, downheap root: n * O(log n).</li>
-                     <li>Total Runtime: **O(n log n)** worst case.</li>
-                     <li>In-place: Yes (using Max-Heap).</li>
-                 </ul>
-             </div>
+             <div class="bg-white p-4 rounded-lg shadow space-y-4"> <h3 class="text-xl font-semibold text-slate-700">Heap Operations (Min-Heap Example)</h3> <div class="overflow-x-auto"> <table class="min-w-full divide-y divide-slate-200"> <thead class="bg-slate-50"> <tr> <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Operation</th> <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Worst Case Runtime</th> <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Key Steps</th> </tr> </thead> <tbody class="bg-white divide-y divide-slate-200"> <tr> <td class="px-6 py-4 text-sm font-medium text-slate-900">`insert(k, v)`</td> <td class="px-6 py-4 text-sm text-slate-600 font-mono">O(log n)</td> <td class="px-6 py-4 text-sm text-slate-600">Add to end, Upheap.</td> </tr> <tr> <td class="px-6 py-4 text-sm font-medium text-slate-900">`min()`</td> <td class="px-6 py-4 text-sm text-slate-600 font-mono">O(1)</td> <td class="px-6 py-4 text-sm text-slate-600">Return root element.</td> </tr> <tr> <td class="px-6 py-4 text-sm font-medium text-slate-900">`removeMin()`</td> <td class="px-6 py-4 text-sm text-slate-600 font-mono">O(log n)</td> <td class="px-6 py-4 text-sm text-slate-600">Replace root with last, remove last, Downheap.</td> </tr> <tr> <td class="px-6 py-4 text-sm font-medium text-slate-900">Bottom-Up Construction</td> <td class="px-6 py-4 text-sm text-slate-600 font-mono">O(n)</td> <td class="px-6 py-4 text-sm text-slate-600">Downheap from last internal node up to root.</td> </tr> </tbody> </table> </div> </div>
+             <div class="bg-white p-4 rounded-lg shadow space-y-4"> <h3 class="text-xl font-semibold text-slate-700">Heap Sort</h3> <p class="text-slate-600">Efficient comparison-based sorting algorithm.</p> <ul class="list-disc list-inside text-slate-600 space-y-1"> <li>Build Heap (Max-Heap for in-place): O(n).</li> <li>Repeatedly swap root with last element, reduce heap size, downheap root: n * O(log n).</li> <li>Total Runtime: **O(n log n)** worst case.</li> <li>In-place: Yes (using Max-Heap).</li> </ul> </div>
         </section>
 
         <!-- Section 8: Maps & BSTs -->
@@ -538,32 +254,38 @@
                      <li>**Ordered Array (Sorted Map):** `get` - **O(log n)**, `put`/`remove` - **O(n)**.</li>
                  </ul>
             </div>
-            <div class="bg-white p-4 rounded-lg shadow space-y-4">
-                <h3 class="text-xl font-semibold text-slate-700">Binary Search Tree (BST)</h3>
-                <p class="text-slate-600">Maintains order: left child < parent < right child.</p>
-                <ul class="list-disc list-inside text-slate-600 space-y-1">
-                    <li>`get(k)` (Search): **O(h)**</li>
-                    <li>`put(k, v)` (Insertion): **O(h)**</li>
-                    <li>`remove(k)` (Deletion): **O(h)**</li>
-                    <li>Inorder traversal yields sorted keys.</li>
-                    <li>Height `h`: Best Case O(log n), Worst Case O(n).</li>
-                </ul>
-                <p class="text-red-600 mt-2"><strong>Important:</strong> Unbalanced BSTs degrade to O(n) performance. Balanced trees (AVL, Red-Black - not covered in detail here but mentioned) guarantee O(log n) height and thus O(log n) operations.</p>
+             <div class="bg-white p-4 rounded-lg shadow space-y-4">
+                <h3 class="text-xl font-semibold text-slate-700">Interactive BST Visualization</h3>
+                 <div class="flex space-x-2 mb-2 items-center flex-wrap">
+                    <input type="number" id="bst-input" placeholder="Key (e.g., 50)" class="border rounded px-2 py-1 text-sm w-28">
+                    <button onclick="bstInsert()" class="bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600">Insert</button>
+                    <input type="number" id="bst-delete-input" placeholder="Key to Delete" class="border rounded px-2 py-1 text-sm w-28">
+                    <button onclick="bstDelete()" class="bg-red-500 text-white px-3 py-1 rounded text-sm hover:bg-red-600">Delete</button>
+                    <input type="number" id="bst-find-input" placeholder="Key to Find" class="border rounded px-2 py-1 text-sm w-28">
+                    <button onclick="bstFind()" class="bg-green-500 text-white px-3 py-1 rounded text-sm hover:bg-green-600">Find</button>
+                    <span id="bst-status" class="text-sm text-slate-600 ml-auto"></span>
+                </div>
+                 <div>
+                    <canvas id="bst-canvas" class="tree-canvas" height="350"></canvas>
+                 </div>
+                 <div class="professor-note">
+                     <strong>Professor's Note:</strong> Try inserting keys in sorted order (e.g., 10, 20, 30, 40) versus a mixed order (e.g., 50, 30, 70, 20, 40, 60, 80). Observe how the tree structure changes and why balanced insertions lead to better performance (O(log n) height) compared to the degenerate O(n) height case.
+                 </div>
             </div>
+            <div class="bg-white p-4 rounded-lg shadow space-y-4"> <h3 class="text-xl font-semibold text-slate-700">Binary Search Tree (BST)</h3> <p class="text-slate-600">Maintains order: left child < parent < right child.</p> <ul class="list-disc list-inside text-slate-600 space-y-1"> <li>`get(k)` (Search): **O(h)**</li> <li>`put(k, v)` (Insertion): **O(h)**</li> <li>`remove(k)` (Deletion): **O(h)**</li> <li>Inorder traversal yields sorted keys.</li> <li>Height `h`: Best Case O(log n), Worst Case O(n).</li> </ul> <p class="text-red-600 mt-2"><strong>Important:</strong> Unbalanced BSTs degrade to O(n) performance. Balanced trees (AVL, Red-Black) guarantee O(log n) height and thus O(log n) operations.</p> </div>
         </section>
 
     </main>
 
     <script>
+        // --- Core Navigation & Setup ---
         const navLinks = document.querySelectorAll('#nav-links a');
         const contentSections = document.querySelectorAll('.content-section');
-        let growthRateChartInstance = null; // To hold the chart instance
-
-        // Simple Stack/Queue Data
-        let stackData = [];
-        let queueData = [];
+        let growthRateChartInstance = null;
+        let activeSectionId = 'intro'; // Keep track of the active section
 
         function showSection(sectionId) {
+            activeSectionId = sectionId;
             contentSections.forEach(section => {
                 section.classList.add('hidden');
             });
@@ -576,183 +298,566 @@
             const activeSection = document.getElementById(sectionId);
             if (activeSection) {
                 activeSection.classList.remove('hidden');
-                window.scrollTo(0, 0); // Scroll to top
+                window.scrollTo(0, 0);
 
-                // Initialize chart only when its section is shown
-                if (sectionId === 'analysis' && !growthRateChartInstance) {
-                   renderGrowthRateChart();
-                }
+                // Initialize visualizations only when their section is shown
+                if (sectionId === 'analysis' && !growthRateChartInstance) renderGrowthRateChart();
+                if (sectionId === 'intro') drawSll(); // Initial draw for SLL
+                if (sectionId === 'heaps') drawHeap(); // Initial draw for Heap
+                if (sectionId === 'maps') drawBst();   // Initial draw for BST
             }
         }
 
-        // Navigation event listeners
         navLinks.forEach(link => {
             link.addEventListener('click', (event) => {
+                event.preventDefault();
                 const sectionId = link.getAttribute('data-section');
                 showSection(sectionId);
-                // Update URL hash without full page reload for history/bookmarking
                 if (history.pushState) {
-                    history.pushState(null, null, '#' + sectionId);
+                    history.pushState({section: sectionId}, null, '#' + sectionId);
                 } else {
                     location.hash = '#' + sectionId;
                 }
-                 event.preventDefault(); // Prevent default anchor jump if using pushState
             });
         });
 
-        // Initial section display based on URL hash or default
         function setInitialSection() {
             const hash = window.location.hash.substring(1);
             const validSectionIds = Array.from(navLinks).map(link => link.getAttribute('data-section'));
             if (hash && validSectionIds.includes(hash)) {
                 showSection(hash);
             } else {
-                showSection('intro'); // Default section
+                showSection('intro');
+                if (history.replaceState) { // Set initial hash without adding to history
+                     history.replaceState({section: 'intro'}, null, '#intro');
+                }
             }
         }
 
-        // Handle browser back/forward navigation
-        window.addEventListener('popstate', setInitialSection);
+        window.addEventListener('popstate', (event) => {
+             if (event.state && event.state.section) {
+                 showSection(event.state.section);
+             } else {
+                 setInitialSection(); // Fallback if state is missing
+             }
+        });
 
-        // --- Growth Rate Chart ---
+        // --- Growth Rate Chart (Section 2) ---
         function calculateGrowthValues(nValues) {
-            const logN = (n) => n <= 1 ? 0 : Math.log2(n);
-            const nLogN = (n) => n <= 1 ? 0 : n * Math.log2(n);
-            const nSquared = (n) => n * n;
-            const nCubed = (n) => n * n * n;
-            const twoPowerN = (n) => Math.pow(2, n); // Careful with large n
-
+             const logN = (n) => n <= 1 ? 0 : Math.log2(n);
+             const nLogN = (n) => n <= 1 ? 0 : n * Math.log2(n);
+             const nSquared = (n) => n * n;
+             const nCubed = (n) => n * n * n;
+             const twoPowerN = (n) => Math.pow(2, n);
             return {
                 labels: nValues,
                 datasets: [
-                    { label: 'O(1)', data: nValues.map(() => 1), borderColor: '#84cc16', tension: 0.1, fill: false },
-                    { label: 'O(log n)', data: nValues.map(logN), borderColor: '#22c55e', tension: 0.1, fill: false },
-                    { label: 'O(n)', data: nValues.map(n => n), borderColor: '#0ea5e9', tension: 0.1, fill: false },
-                    { label: 'O(n log n)', data: nValues.map(nLogN), borderColor: '#6366f1', tension: 0.1, fill: false },
-                    { label: 'O(n^2)', data: nValues.map(nSquared), borderColor: '#f97316', tension: 0.1, fill: false },
-                    { label: 'O(n^3)', data: nValues.map(nCubed), borderColor: '#ef4444', tension: 0.1, fill: false },
-                     // Only plot 2^n for small values to avoid huge numbers
-                    { label: 'O(2^n)', data: nValues.filter(n => n <= 10).map(twoPowerN), borderColor: '#7e22ce', tension: 0.1, fill: false }
-                 ]
-            };
+                    { label: 'O(1)', data: nValues.map(() => 1), borderColor: '#84cc16', tension: 0.1, fill: false, pointRadius: 3 },
+                    { label: 'O(log n)', data: nValues.map(logN), borderColor: '#22c55e', tension: 0.1, fill: false, pointRadius: 3 },
+                    { label: 'O(n)', data: nValues.map(n => n), borderColor: '#0ea5e9', tension: 0.1, fill: false, pointRadius: 3 },
+                    { label: 'O(n log n)', data: nValues.map(nLogN), borderColor: '#6366f1', tension: 0.1, fill: false, pointRadius: 3 },
+                    { label: 'O(n^2)', data: nValues.map(nSquared), borderColor: '#f97316', tension: 0.1, fill: false, pointRadius: 3 },
+                    { label: 'O(n^3)', data: nValues.map(nCubed), borderColor: '#ef4444', tension: 0.1, fill: false, pointRadius: 3 },
+                    { label: 'O(2^n)', data: nValues.filter(n => n <= 10).map(twoPowerN), borderColor: '#a855f7', tension: 0.1, fill: false, pointRadius: 3 } // Only plot 2^n for small N
+                 ]};
         }
-
         function renderGrowthRateChart() {
-            const ctx = document.getElementById('growthRateChart').getContext('2d');
-            // Use a smaller range for n, especially for exponential
-            const nValues = [1, 2, 4, 8, 16, 32, 64]; // Adjusted for better visualization, especially with log scale
+            const ctx = document.getElementById('growthRateChart')?.getContext('2d');
+             if (!ctx) return;
+            const nValues = [1, 2, 4, 8, 16, 32, 64];
             const chartData = calculateGrowthValues(nValues);
+             if (growthRateChartInstance) growthRateChartInstance.destroy();
+            growthRateChartInstance = new Chart(ctx, { type: 'line', data: chartData, options: { responsive: true, maintainAspectRatio: false, scales: { x: { type: 'logarithmic', title: { display: true, text: 'Input Size (n)' } }, y: { type: 'logarithmic', title: { display: true, text: 'Relative Runtime Growth' }, min: 0.1 } }, plugins: { tooltip: { mode: 'index', intersect: false }, legend: { position: 'top' } } } });
+        }
 
-             if (growthRateChartInstance) {
-                growthRateChartInstance.destroy(); // Destroy previous instance if exists
-            }
+        // --- Stack/Queue Visualization Logic (Section 3) ---
+        let stackData = [];
+        let queueData = [];
+        function updateStackViz() { /* ... content from previous version ... */ const viz=document.getElementById('stack-viz'); if(!viz) return; viz.innerHTML=''; stackData.forEach(item=>{ const div=document.createElement('div'); div.className='viz-item'; div.textContent=item; viz.appendChild(div); }); }
+        function stackPush() { /* ... content from previous version ... */ const input=document.getElementById('stack-input'); const output=document.getElementById('stack-output'); if(!input || !output) return; const value=input.value.trim(); if(value){ stackData.push(value); updateStackViz(); input.value=''; output.textContent=`Pushed: ${value}`; } else { output.textContent='Please enter a value to push.'; } }
+        function stackPop() { /* ... content from previous version ... */ const output=document.getElementById('stack-output'); if(!output) return; if(stackData.length>0){ const value=stackData.pop(); updateStackViz(); output.textContent=`Popped: ${value}`; } else { output.textContent='Stack is empty.'; } }
+        function updateQueueViz() { /* ... content from previous version ... */ const viz=document.getElementById('queue-viz'); if(!viz) return; viz.innerHTML=''; queueData.forEach(item=>{ const div=document.createElement('div'); div.className='viz-item'; div.textContent=item; viz.appendChild(div); }); }
+        function queueEnqueue() { /* ... content from previous version ... */ const input=document.getElementById('queue-input'); const output=document.getElementById('queue-output'); if(!input || !output) return; const value=input.value.trim(); if(value){ queueData.push(value); updateQueueViz(); input.value=''; output.textContent=`Enqueued: ${value}`; } else { output.textContent='Please enter a value to enqueue.'; } }
+        function queueDequeue() { /* ... content from previous version ... */ const output=document.getElementById('queue-output'); if(!output) return; if(queueData.length>0){ const value=queueData.shift(); updateQueueViz(); output.textContent=`Dequeued: ${value}`; } else { output.textContent='Queue is empty.'; } }
 
-            growthRateChartInstance = new Chart(ctx, {
-                type: 'line',
-                data: chartData,
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                     scales: {
-                        x: {
-                            type: 'logarithmic', // Use logarithmic scale for x-axis
-                            title: { display: true, text: 'Input Size (n)' }
-                        },
-                        y: {
-                             type: 'logarithmic', // Use logarithmic scale for y-axis
-                            title: { display: true, text: 'Relative Runtime Growth' },
-                            min: 0.1 // Start slightly above 0 for log scale
-                        }
-                    },
-                    plugins: {
-                        tooltip: {
-                            mode: 'index',
-                            intersect: false,
-                        },
-                         legend: {
-                            position: 'top',
-                         }
-                    }
-                }
+        // --- Singly Linked List Visualization (Section 1) ---
+        let sllData = []; // Array representing the list values
+        function drawSll() {
+            const viz = document.getElementById('sll-viz');
+            if (!viz) return;
+            // Clear existing nodes except Head/Null markers
+             while (viz.childNodes.length > 2) {
+                 if(viz.childNodes[1] && viz.childNodes[1].nodeName !== 'SPAN') {
+                    viz.removeChild(viz.childNodes[1]);
+                 } else if (viz.childNodes[1]) {
+                    break; // Should not happen if structure is correct
+                 }
+             }
+
+            let currentElement = viz.childNodes[0]; // Start after "Head ->" span
+
+            sllData.forEach((value, index) => {
+                const nodeDiv = document.createElement('div');
+                nodeDiv.className = 'list-node';
+                nodeDiv.textContent = value;
+
+                const linkSpan = document.createElement('span');
+                linkSpan.className = 'list-link';
+                linkSpan.textContent = '→';
+
+                viz.insertBefore(nodeDiv, viz.childNodes[viz.childNodes.length - 1]); // Insert before "-> Null"
+                viz.insertBefore(linkSpan, viz.childNodes[viz.childNodes.length - 1]);
             });
+             updateSllStatus();
         }
-
-        // --- Simple Stack/Queue Visualization Logic ---
-        function updateStackViz() {
-            const viz = document.getElementById('stack-viz');
-            viz.innerHTML = ''; // Clear previous items
-            stackData.forEach(item => {
-                const div = document.createElement('div');
-                div.className = 'viz-item';
-                div.textContent = item;
-                viz.appendChild(div);
-            });
+        function updateSllStatus(message = '') {
+             const status = document.getElementById('sll-status');
+             if(status) status.textContent = `Size: ${sllData.length}. ${message}`;
         }
-
-         function stackPush() {
-            const input = document.getElementById('stack-input');
-            const output = document.getElementById('stack-output');
-            const value = input.value.trim();
-            if (value) {
-                stackData.push(value);
-                updateStackViz();
-                input.value = '';
-                output.textContent = `Pushed: ${value}`;
-            } else {
-                 output.textContent = 'Please enter a value to push.';
-            }
-        }
-
-        function stackPop() {
-             const output = document.getElementById('stack-output');
-            if (stackData.length > 0) {
-                const value = stackData.pop();
-                updateStackViz();
-                 output.textContent = `Popped: ${value}`;
-            } else {
-                output.textContent = 'Stack is empty.';
-            }
-        }
-
-         function updateQueueViz() {
-            const viz = document.getElementById('queue-viz');
-            viz.innerHTML = ''; // Clear previous items
-            queueData.forEach(item => {
-                const div = document.createElement('div');
-                div.className = 'viz-item';
-                div.textContent = item;
-                viz.appendChild(div);
-            });
-        }
-
-        function queueEnqueue() {
-            const input = document.getElementById('queue-input');
-            const output = document.getElementById('queue-output');
-            const value = input.value.trim();
+        function sllAddFirst() {
+             const input = document.getElementById('sll-input');
+             if (!input) return;
+             const value = input.value.trim();
              if (value) {
-                queueData.push(value); // Add to rear
-                updateQueueViz();
+                 sllData.unshift(value); // Add to beginning of array
+                 drawSll();
+                 input.value = '';
+                 updateSllStatus(`Added ${value} to front.`);
+             } else {
+                 updateSllStatus('Enter value.');
+             }
+        }
+        function sllAddLast() {
+             const input = document.getElementById('sll-input');
+             if (!input) return;
+             const value = input.value.trim();
+              if (value) {
+                 sllData.push(value); // Add to end of array
+                 drawSll();
+                 input.value = '';
+                 updateSllStatus(`Added ${value} to end.`);
+             } else {
+                  updateSllStatus('Enter value.');
+             }
+        }
+        function sllRemoveFirst() {
+             if (sllData.length > 0) {
+                 const removed = sllData.shift(); // Remove from beginning
+                 drawSll();
+                 updateSllStatus(`Removed ${removed} from front.`);
+             } else {
+                 updateSllStatus('List empty.');
+             }
+        }
+        function sllRemoveLast() { // O(n) for visualization array, mimics SLL without tail's prev
+             if (sllData.length > 0) {
+                 const removed = sllData.pop(); // Remove from end
+                 drawSll();
+                 updateSllStatus(`Removed ${removed} from end.`);
+             } else {
+                 updateSllStatus('List empty.');
+             }
+        }
+
+
+        // --- Heap Visualization (Section 7) ---
+        let heapData = []; // Array representing the min-heap
+        const heapCanvas = document.getElementById('heap-canvas');
+        const heapCtx = heapCanvas?.getContext('2d');
+        const nodeRadius = 15;
+        const levelHeight = 60;
+        const siblingGap = 40;
+
+        function getHeapNodePos(index, canvasWidth) {
+            const level = Math.floor(Math.log2(index + 1));
+            const indexInLevel = index - (Math.pow(2, level) - 1);
+            const levelNodes = Math.pow(2, level);
+            const levelWidth = Math.min(canvasWidth * 0.9, levelNodes * siblingGap + (levelNodes - 1) * nodeRadius * 1.5); // Adjust width based on nodes
+            const startX = (canvasWidth - levelWidth) / 2;
+            const nodeSpacing = levelNodes > 1 ? levelWidth / (levelNodes -1) : 0; // Avoid division by zero
+
+
+            const x = startX + (levelNodes === 1 ? levelWidth / 2 : indexInLevel * nodeSpacing );
+            const y = level * levelHeight + 40; // Add padding top
+            return { x, y };
+        }
+
+        function drawHeap() {
+            if (!heapCtx || !heapCanvas) return;
+            const width = heapCanvas.width;
+            const height = Math.max(300, (Math.floor(Math.log2(heapData.length + 1))) * levelHeight + 80); // Dynamic height
+            heapCanvas.height = height;
+            heapCtx.clearRect(0, 0, width, height);
+            heapCtx.font = '12px sans-serif';
+            heapCtx.textAlign = 'center';
+            heapCtx.textBaseline = 'middle';
+
+            if (heapData.length === 0) {
+                heapCtx.fillStyle = '#64748b';
+                heapCtx.fillText("Heap is empty", width / 2, height / 2);
+                drawHeapArray(); // Update array view too
+                return;
+            }
+
+
+            // Draw lines first
+            heapCtx.strokeStyle = '#94a3b8';
+            heapCtx.lineWidth = 1;
+            for (let i = 0; i < heapData.length; i++) {
+                const pos = getHeapNodePos(i, width);
+                const leftChildIdx = 2 * i + 1;
+                const rightChildIdx = 2 * i + 2;
+
+                if (leftChildIdx < heapData.length) {
+                    const leftPos = getHeapNodePos(leftChildIdx, width);
+                    heapCtx.beginPath();
+                    heapCtx.moveTo(pos.x, pos.y);
+                    heapCtx.lineTo(leftPos.x, leftPos.y);
+                    heapCtx.stroke();
+                }
+                if (rightChildIdx < heapData.length) {
+                    const rightPos = getHeapNodePos(rightChildIdx, width);
+                    heapCtx.beginPath();
+                    heapCtx.moveTo(pos.x, pos.y);
+                    heapCtx.lineTo(rightPos.x, rightPos.y);
+                    heapCtx.stroke();
+                }
+            }
+
+            // Draw nodes and text
+            for (let i = 0; i < heapData.length; i++) {
+                 const pos = getHeapNodePos(i, width);
+                 // Draw node circle
+                 heapCtx.beginPath();
+                 heapCtx.arc(pos.x, pos.y, nodeRadius, 0, Math.PI * 2);
+                 heapCtx.fillStyle = '#60a5fa'; // Blue node
+                 heapCtx.fill();
+                 heapCtx.strokeStyle = '#2563eb'; // Darker blue border
+                 heapCtx.lineWidth = 1;
+                 heapCtx.stroke();
+
+                 // Draw text
+                 heapCtx.fillStyle = 'white'; // White text
+                 heapCtx.fillText(heapData[i], pos.x, pos.y);
+            }
+            drawHeapArray();
+             updateHeapStatus();
+        }
+
+        function drawHeapArray() {
+             const arrayRepDiv = document.getElementById('heap-array-rep');
+             if (!arrayRepDiv) return;
+             arrayRepDiv.innerHTML = '';
+             heapData.forEach((val, index) => {
+                 const cellContainer = document.createElement('div');
+                 const indexDiv = document.createElement('div');
+                 indexDiv.className = 'array-index';
+                 indexDiv.textContent = index;
+                 const cellDiv = document.createElement('div');
+                 cellDiv.className = 'array-cell';
+                 cellDiv.textContent = val;
+                 cellContainer.appendChild(indexDiv);
+                 cellContainer.appendChild(cellDiv);
+                 arrayRepDiv.appendChild(cellContainer);
+             });
+        }
+         function updateHeapStatus(message = '') {
+             const status = document.getElementById('heap-status');
+             if(status) status.textContent = `Size: ${heapData.length}. ${message}`;
+        }
+
+        // Min-Heap operations
+        function swap(arr, i, j) { [arr[i], arr[j]] = [arr[j], arr[i]]; }
+        function upheap(index) {
+            let parentIdx = Math.floor((index - 1) / 2);
+            while (index > 0 && heapData[index] < heapData[parentIdx]) {
+                swap(heapData, index, parentIdx);
+                index = parentIdx;
+                parentIdx = Math.floor((index - 1) / 2);
+            }
+        }
+        function downheap(index) {
+            const size = heapData.length;
+            while (true) {
+                let leftChildIdx = 2 * index + 1;
+                let rightChildIdx = 2 * index + 2;
+                let smallestIdx = index;
+
+                if (leftChildIdx < size && heapData[leftChildIdx] < heapData[smallestIdx]) {
+                    smallestIdx = leftChildIdx;
+                }
+                if (rightChildIdx < size && heapData[rightChildIdx] < heapData[smallestIdx]) {
+                    smallestIdx = rightChildIdx;
+                }
+                if (smallestIdx === index) {
+                    break; // Heap property satisfied
+                }
+                swap(heapData, index, smallestIdx);
+                index = smallestIdx;
+            }
+        }
+        function heapInsert() {
+            const input = document.getElementById('heap-input');
+             if (!input) return;
+            const value = parseInt(input.value, 10);
+            if (!isNaN(value)) {
+                heapData.push(value);
+                upheap(heapData.length - 1);
+                drawHeap();
                 input.value = '';
-                output.textContent = `Enqueued: ${value}`;
+                 updateHeapStatus(`Inserted ${value}.`);
             } else {
-                output.textContent = 'Please enter a value to enqueue.';
+                updateHeapStatus('Invalid input.');
+            }
+        }
+        function heapRemoveMin() {
+            if (heapData.length === 0) {
+                 updateHeapStatus('Heap empty.');
+                 return;
+            }
+            const minVal = heapData[0];
+            const lastVal = heapData.pop();
+            if (heapData.length > 0) {
+                heapData[0] = lastVal;
+                downheap(0);
+            }
+            drawHeap();
+            updateHeapStatus(`Removed Min: ${minVal}.`);
+        }
+         function heapBuildExample() {
+            heapData = [16, 15, 4, 12, 6, 7, 23, 20, 25, 5, 11, 27, 9, 14, 8]; // Example data
+            // Bottom-up heapify
+            const lastInternalNodeIndex = Math.floor((heapData.length - 2) / 2);
+             for(let i = lastInternalNodeIndex; i >= 0; i--) {
+                downheap(i);
+             }
+             drawHeap();
+             updateHeapStatus('Built example heap.');
+         }
+
+        // --- BST Visualization (Section 8) ---
+        let bstRoot = null; // Root of the BST (using nested objects for nodes)
+        const bstCanvas = document.getElementById('bst-canvas');
+        const bstCtx = bstCanvas?.getContext('2d');
+        const bstNodeRadius = 18;
+        const bstLevelHeight = 70;
+
+        // Node structure: { key: number, left: node|null, right: node|null, x: number, y: number }
+        function drawBstNode(node) {
+            if (!node || !bstCtx) return;
+
+            // Draw lines to children first
+            bstCtx.strokeStyle = '#94a3b8';
+            bstCtx.lineWidth = 1;
+            if (node.left) {
+                bstCtx.beginPath();
+                bstCtx.moveTo(node.x, node.y);
+                bstCtx.lineTo(node.left.x, node.left.y);
+                bstCtx.stroke();
+                drawBstNode(node.left);
+            }
+            if (node.right) {
+                bstCtx.beginPath();
+                bstCtx.moveTo(node.x, node.y);
+                bstCtx.lineTo(node.right.x, node.right.y);
+                bstCtx.stroke();
+                drawBstNode(node.right);
+            }
+
+            // Draw node circle
+            bstCtx.beginPath();
+            bstCtx.arc(node.x, node.y, bstNodeRadius, 0, Math.PI * 2);
+            bstCtx.fillStyle = '#a7f3d0'; // Light green node
+            bstCtx.fill();
+            bstCtx.strokeStyle = '#059669'; // Darker green border
+            bstCtx.lineWidth = 1.5;
+            bstCtx.stroke();
+
+            // Draw text
+            bstCtx.fillStyle = '#065f46'; // Dark green text
+            bstCtx.font = 'bold 12px sans-serif';
+            bstCtx.textAlign = 'center';
+            bstCtx.textBaseline = 'middle';
+            bstCtx.fillText(node.key, node.x, node.y);
+        }
+
+        // Calculate node positions (simple approach)
+        function setBstNodePositions(node, x, y, xOffset) {
+             if (!node) return;
+             node.x = x;
+             node.y = y;
+             const childXOffset = xOffset / 2; // Reduce offset for children
+             if (node.left) setBstNodePositions(node.left, x - xOffset, y + bstLevelHeight, childXOffset);
+             if (node.right) setBstNodePositions(node.right, x + xOffset, y + bstLevelHeight, childXOffset);
+        }
+
+        function drawBst() {
+            if (!bstCtx || !bstCanvas) return;
+             const width = bstCanvas.width;
+             // Estimate height needed - very basic, might need adjustment
+             const estimatedHeight = bstRoot ? getHeight(bstRoot) * bstLevelHeight + 60 : 100;
+             bstCanvas.height = Math.max(350, estimatedHeight);
+             bstCtx.clearRect(0, 0, width, bstCanvas.height);
+
+             if (bstRoot) {
+                 const initialXOffset = width / 4; // Adjust as needed
+                 setBstNodePositions(bstRoot, width / 2, 40, initialXOffset);
+                 drawBstNode(bstRoot);
+             } else {
+                 bstCtx.fillStyle = '#64748b';
+                 bstCtx.font = '12px sans-serif';
+                 bstCtx.textAlign = 'center';
+                 bstCtx.fillText("BST is empty", width / 2, bstCanvas.height / 2);
+             }
+              updateBstStatus();
+        }
+         function getHeight(node) {
+            if (!node) return 0;
+            return 1 + Math.max(getHeight(node.left), getHeight(node.right));
+         }
+         function updateBstStatus(message = '') {
+             const status = document.getElementById('bst-status');
+             if(status) status.textContent = `${message}`;
+        }
+
+        // BST Operations
+        function bstInsertNode(node, key) {
+            if (node === null) {
+                return { key: key, left: null, right: null, x:0, y:0 }; // Position set later
+            }
+            if (key < node.key) {
+                node.left = bstInsertNode(node.left, key);
+            } else if (key > node.key) {
+                node.right = bstInsertNode(node.right, key);
+            }
+            // Ignore duplicates for simplicity
+            return node;
+        }
+        function bstInsert() {
+            const input = document.getElementById('bst-input');
+             if (!input) return;
+            const key = parseInt(input.value, 10);
+            if (!isNaN(key)) {
+                bstRoot = bstInsertNode(bstRoot, key);
+                drawBst();
+                input.value = '';
+                updateBstStatus(`Inserted ${key}.`);
+            } else {
+                 updateBstStatus('Invalid key.');
+            }
+        }
+        function findMinNode(node) {
+            return node.left === null ? node : findMinNode(node.left);
+        }
+        function bstDeleteNode(node, key) {
+             if (node === null) return null;
+
+             if (key < node.key) {
+                 node.left = bstDeleteNode(node.left, key);
+                 return node;
+             } else if (key > node.key) {
+                 node.right = bstDeleteNode(node.right, key);
+                 return node;
+             } else {
+                 // Node found
+                 // Case 1: No children or one child
+                 if (node.left === null) return node.right;
+                 if (node.right === null) return node.left;
+
+                 // Case 2: Two children
+                 const minRight = findMinNode(node.right);
+                 node.key = minRight.key; // Replace key with inorder successor
+                 node.right = bstDeleteNode(node.right, minRight.key); // Delete successor
+                 return node;
+             }
+        }
+         function bstDelete() {
+            const input = document.getElementById('bst-delete-input');
+             if (!input) return;
+            const key = parseInt(input.value, 10);
+             if (!isNaN(key)) {
+                 bstRoot = bstDeleteNode(bstRoot, key);
+                 drawBst();
+                 input.value = '';
+                 updateBstStatus(`Attempted to delete ${key}.`);
+             } else {
+                  updateBstStatus('Invalid key to delete.');
+             }
+        }
+         function bstFindNode(node, key, pathNodes) {
+             if (node === null) return null;
+             pathNodes.push(node);
+             if (key < node.key) {
+                 return bstFindNode(node.left, key, pathNodes);
+             } else if (key > node.key) {
+                 return bstFindNode(node.right, key, pathNodes);
+             } else {
+                 return node; // Found
+             }
+         }
+        function highlightPath(nodes) {
+            drawBst(); // Redraw base tree
+            if (!bstCtx || nodes.length === 0) return;
+
+            bstCtx.lineWidth = 2.5;
+            bstCtx.strokeStyle = '#fb923c'; // Orange for path lines
+            bstCtx.fillStyle = '#fed7aa'; // Lighter orange for nodes
+
+            for(let i = 0; i < nodes.length; i++) {
+                const node = nodes[i];
+                // Highlight node
+                bstCtx.beginPath();
+                bstCtx.arc(node.x, node.y, bstNodeRadius, 0, Math.PI * 2);
+                bstCtx.fill();
+                bstCtx.stroke();
+                 bstCtx.fillStyle = '#8c2d0b'; // Darker text
+                 bstCtx.fillText(node.key, node.x, node.y);
+
+                 // Highlight edge to next node
+                 if (i < nodes.length - 1) {
+                     const nextNode = nodes[i+1];
+                     bstCtx.beginPath();
+                     bstCtx.moveTo(node.x, node.y);
+                     bstCtx.lineTo(nextNode.x, nextNode.y);
+                     bstCtx.stroke();
+                 }
+            }
+        }
+        function bstFind() {
+            const input = document.getElementById('bst-find-input');
+             if (!input) return;
+            const key = parseInt(input.value, 10);
+            if (!isNaN(key)) {
+                 let pathNodes = [];
+                 const foundNode = bstFindNode(bstRoot, key, pathNodes);
+                 highlightPath(pathNodes); // Highlight the search path
+                 input.value = '';
+                 if (foundNode) {
+                    updateBstStatus(`Found ${key}. Path highlighted.`);
+                 } else {
+                     updateBstStatus(`${key} not found. Path highlighted.`);
+                 }
+            } else {
+                 updateBstStatus('Invalid key to find.');
             }
         }
 
-        function queueDequeue() {
-             const output = document.getElementById('queue-output');
-            if (queueData.length > 0) {
-                const value = queueData.shift(); // Remove from front
-                updateQueueViz();
-                output.textContent = `Dequeued: ${value}`;
-            } else {
-                 output.textContent = 'Queue is empty.';
-            }
-        }
 
-
-        // Set the initial section on page load
-        document.addEventListener('DOMContentLoaded', setInitialSection);
+        // Set the initial section and draw initial visualizations
+        document.addEventListener('DOMContentLoaded', () => {
+             setInitialSection();
+             // Add resize listener for canvas redraws
+             let resizeTimeout;
+             window.addEventListener('resize', () => {
+                 clearTimeout(resizeTimeout);
+                 resizeTimeout = setTimeout(() => {
+                    // Only redraw if the relevant section is active
+                    if (activeSectionId === 'heaps') drawHeap();
+                    if (activeSectionId === 'maps') drawBst();
+                    // Chart.js handles its own resize if responsive: true
+                 }, 250); // Debounce resize events
+             });
+        });
 
     </script>
 
